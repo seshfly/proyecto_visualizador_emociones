@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualizador de emociones | Análisis literario</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0a0a1a 0%, #151530 50%, #0a0a1a 100%);
+            font-family: 'Georgia', 'Times New Roman', serif;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: rgba(20, 15, 35, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 2rem;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            text-align: center;
+            color: #e8dcc0;
+            font-family: 'Courier New', monospace;
+            font-size: 1.8rem;
+            margin-bottom: 0.5rem;
+            letter-spacing: 2px;
+        }
+
+        .sub {
+            text-align: center;
+            color: #a09070;
+            margin-bottom: 2rem;
+            font-style: italic;
+            font-size: 0.9rem;
+        }
+
+        .input-section {
+            margin-bottom: 2rem;
+        }
+
+        .textarea-container {
+            position: relative;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            background: rgba(10, 8, 20, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 1rem;
+            padding: 1.2rem;
+            color: #e8dcc0;
+            font-family: 'Georgia', serif;
+            font-size: 1rem;
+            line-height: 1.6;
+            resize: vertical;
+            transition: all 0.2s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #ffd4a8;
+            box-shadow: 0 0 15px rgba(255, 212, 168, 0.2);
+        }
+
+        textarea::placeholder {
+            color: #5a4a6a;
+            font-style: italic;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .analyze-btn {
+            background: linear-gradient(135deg, #4a3a6a, #2a1a4a);
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 3rem;
+            color: #e8dcc0;
+            font-size: 1rem;
+            cursor: pointer;
+            font-family: monospace;
+            transition: all 0.3s ease;
+        }
+
+        .analyze-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+            background: linear-gradient(135deg, #6a5a8a, #4a3a6a);
+        }
+
+        .clear-btn {
+            background: rgba(30, 25, 50, 0.8);
+            border: 1px solid rgba(232, 220, 192, 0.3);
+            padding: 0.8rem 2rem;
+            border-radius: 3rem;
+            color: #e8dcc0;
+            font-size: 1rem;
+            cursor: pointer;
+            font-family: monospace;
+            transition: all 0.2s ease;
+        }
+
+        .clear-btn:hover {
+            background: rgba(50, 45, 80, 0.9);
+            transform: translateY(-2px);
+        }
+
+        .examples {
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .example-btn {
+            background: rgba(30, 25, 50, 0.5);
+            border: 1px solid rgba(232, 220, 192, 0.2);
+            padding: 0.4rem 1rem;
+            border-radius: 2rem;
+            cursor: pointer;
+            color: #a09070;
+            font-size: 0.75rem;
+            font-family: monospace;
+            transition: all 0.2s;
+        }
+
+        .example-btn:hover {
+            background: rgba(50, 45, 80, 0.7);
+            color: #e8dcc0;
+        }
+
+        .results-section {
+            display: none;
+        }
+
+        .results-section.visible {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .charts-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            flex: 1;
+            min-width: 300px;
+            background: rgba(10, 8, 20, 0.5);
+            border-radius: 1rem;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .chart-title {
+            text-align: center;
+            color: #a09070;
+            font-size: 0.85rem;
+            font-family: monospace;
+            margin-bottom: 1rem;
+            letter-spacing: 1px;
+        }
+
+        .bar-chart {
+            width: 100%;
+            height: 300px;
+        }
+
+        .radar-chart {
+            width: 100%;
+            height: 300px;
+        }
+
+        /* ============================================ */
+        /* PALABRAS CLAVE POR EMOCIÓN */
+        /* ============================================ */
+        .keywords-section {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgb(255, 255, 255);
+        }
+
+        .keywords-title {
+            text-align: center;
+            color: #a09070;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            font-family: monospace;
+        }
+
+        .keywords-grid {
+            color: #fae9c5;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+        }
+
+        .keyword-card {
+            background: rgba(30, 25, 50, 0.5);
+            border-radius: 0.8rem;
+            padding: 0.8rem;
+            border-left: 3px solid;
+            transition: all 0.2s;
+        }
+
+        .keyword-card:hover {
+            transform: translateX(5px);
+            background: rgba(50, 45, 80, 0.6);
+        }
+
+        .keyword-emotion {
+            font-size: 0.7rem;
+            font-family: monospace;
+            margin-bottom: 0.3rem;
+        }
+
+        .keyword-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-top: 0.3rem;
+        }
+
+        .keyword-tag {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.2rem 0.5rem;
+            border-radius: 1rem;
+            font-size: 0.7rem;
+            color: #e8dcc0;
+            font-family: monospace;
+        }
+
+        .emotion-joy { border-left-color: #ffd700; }
+        .emotion-sadness { border-left-color: #6a8ab0; }
+        .emotion-anger { border-left-color: #ff6a6a; }
+        .emotion-fear { border-left-color: #8a6a8a; }
+        .emotion-love { border-left-color: #ff6b9d; }
+        .emotion-surprise { border-left-color: #6b9d3a; }
+
+        .stats-footer {
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            text-align: center;
+            font-size: 0.7rem;
+            color: #6a5a7a;
+            font-family: monospace;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: #ffd4a8;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-size: 0.8rem;
+            font-family: monospace;
+            z-index: 10000;
+            border: 1px solid #ffd4a8;
+            animation: toastFade 2s ease forwards;
+            pointer-events: none;
+        }
+
+        @keyframes toastFade {
+            0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            85% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+        }
+
+        @media (max-width: 800px) {
+            body {
+                padding: 1rem;
+            }
+            .card {
+                padding: 1.2rem;
+            }
+            h1 {
+                font-size: 1.4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>Visualizador de emociones</h1>
+            <p class="sub">Análisis de sentimiento en textos literarios</p>
+
+            <div class="examples">
+                <button class="example-btn" data-example="love">Texto romántico</button>
+                <button class="example-btn" data-example="sad">Texto triste</button>
+                <button class="example-btn" data-example="anger">Texto de enojo</button>
+                <button class="example-btn" data-example="poem">Poema mistraliano</button>
+            </div>
+
+            <div class="input-section">
+                <div class="textarea-container">
+                    <textarea id="textInput" placeholder="Escribe o pega un texto aquí...&#10;&#10;Por ejemplo:&#10;&#10;El amor es como el viento, no lo ves pero lo sientes. Cuando estoy contigo, el mundo entero sonríe. Tus ojos brillan como estrellas en la noche más oscura. Te quiero con toda mi alma."></textarea>
+                </div>
+                <div class="button-group">
+                    <button id="analyzeBtn" class="analyze-btn">Analizar emociones</button>
+                    <button id="clearBtn" class="clear-btn">Limpiar</button>
+                </div>
+            </div>
+
+            <div id="resultsSection" class="results-section">
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <div class="chart-title">Intensidad emocional</div>
+                        <div id="barChart" class="bar-chart"></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-title">Perfil emocional (radar)</div>
+                        <div id="radarChart" class="radar-chart"></div>
+                    </div>
+                </div>
+
+                <div class="keywords-section">
+                    <div class="keywords-title">Palabras clave detectadas por emoción</div>
+                    <div id="keywordsGrid" class="keywords-grid"></div>
+                </div>
+
+                <div class="stats-footer" id="statsFooter"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        const emotionLexicon = {
+            joy: {
+                words: ['feliz', 'alegre', 'contento', 'sonrisa', 'reír', 'risa', 'disfrutar', 'maravilloso', 'excelente', 'fantástico', 'genial', 'hermoso', 'bello', 'lindo', 'amor', 'abrazar', 'celebrar', 'fiesta', 'brillar', 'luz', 'esperanza', 'sueño', 'éxito', 'triunfo', 'ganar'],
+                weight: 1
+            },
+            sadness: {
+                words: ['triste', 'melancolía', 'llorar', 'lágrima', 'dolor', 'sufrir', 'pena', 'soledad', 'vacío', 'ausencia', 'pérdida', 'adiós', 'partir', 'morir', 'muerte', 'oscuridad', 'frío', 'sombrío', 'nostalgia', 'recuerdo', 'olvido', 'herida'],
+                weight: 1
+            },
+            anger: {
+                words: ['enojo', 'rabia', 'furia', 'odio', 'ira', 'molesto', 'fastidio', 'violencia', 'gritar', 'destruir', 'romper', 'golpear', 'traición', 'injusticia', 'mentira', 'engañar', 'venganza', 'rencor', 'resentimiento'],
+                weight: 1
+            },
+            fear: {
+                words: ['miedo', 'temor', 'terror', 'horror', 'pánico', 'angustia', 'ansiedad', 'preocupación', 'amenaza', 'peligro', 'oscuridad', 'sombra', 'fantasma', 'pesadilla', 'alarma', 'inquietud', 'desconfianza'],
+                weight: 1
+            },
+            love: {
+                words: ['amor', 'amar', 'querer', 'corazón', 'pasión', 'romance', 'beso', 'abrazo', 'ternura', 'cuidar', 'proteger', 'fiel', 'leal', 'eterno', 'alma', 'suspiro', 'deseo', 'caricia', 'encanto', 'belleza'],
+                weight: 1
+            },
+            surprise: {
+                words: ['sorpresa', 'asombro', 'impacto', 'inesperado', 'repentino', 'extrañar', 'curiosidad', 'misterio', 'descubrir', 'increíble', 'asombroso', 'imprevisto', 'milagro', 'maravilla'],
+                weight: 1
+            }
+        };
+
+        function analyzeText(text) {
+            const cleanText = text.toLowerCase()
+                .replace(/[.,;:!?¿¡()\-"']/g, ' ')
+                .replace(/\s+/g, ' ');
+            const words = cleanText.split(' ').filter(w => w.length > 2);
+            
+            const scores = {
+                joy: 0,
+                sadness: 0,
+                anger: 0,
+                fear: 0,
+                love: 0,
+                surprise: 0
+            };
+            
+            const foundWords = {
+                joy: [],
+                sadness: [],
+                anger: [],
+                fear: [],
+                love: [],
+                surprise: []
+            };
+            
+            for (const word of words) {
+                for (const [emotion, data] of Object.entries(emotionLexicon)) {
+                    if (data.words.includes(word)) {
+                        scores[emotion] += data.weight;
+                        if (!foundWords[emotion].includes(word)) {
+                            foundWords[emotion].push(word);
+                        }
+                    }
+                }
+            }
+            
+            const total = Object.values(scores).reduce((a, b) => a + b, 0);
+            let normalized = { ...scores };
+            
+            if (total > 0) {
+                for (const emotion in normalized) {
+                    normalized[emotion] = (normalized[emotion] / total) * 100;
+                }
+            } else {
+                for (const emotion in normalized) {
+                    normalized[emotion] = 0;
+                }
+            }
+            
+            for (const emotion in normalized) {
+                normalized[emotion] = Math.round(normalized[emotion] * 10) / 10;
+            }
+            
+            return {
+                scores: normalized,
+                foundWords: foundWords,
+                wordCount: words.length,
+                totalScore: total
+            };
+        }
+
+        const emotions = [
+            { id: 'joy', name: 'Alegría', color: '#ffd700', icon: '😊' },
+            { id: 'sadness', name: 'Tristeza', color: '#6a8ab0', icon: '😢' },
+            { id: 'anger', name: 'Enojo', color: '#ff6a6a', icon: '😠' },
+            { id: 'fear', name: 'Miedo', color: '#8a6a8a', icon: '😨' },
+            { id: 'love', name: 'Amor', color: '#ff6b9d', icon: '❤️' },
+            { id: 'surprise', name: 'Sorpresa', color: '#6b9d3a', icon: '😲' }
+        ];
+
+        const textInput = document.getElementById('textInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const resultsSection = document.getElementById('resultsSection');
+        const barChartDiv = document.getElementById('barChart');
+        const radarChartDiv = document.getElementById('radarChart');
+        const keywordsGrid = document.getElementById('keywordsGrid');
+        const statsFooter = document.getElementById('statsFooter');
+
+        let currentBarChart = null;
+        let currentRadarChart = null;
+
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        function drawBarChart(data) {
+            barChartDiv.innerHTML = '';
+            
+            const width = barChartDiv.clientWidth || 400;
+            const height = 280;
+            const margin = { top: 20, right: 20, bottom: 50, left: 50 };
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+            
+            const svg = d3.select(barChartDiv)
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+            
+            const xScale = d3.scaleBand()
+                .domain(emotions.map(e => e.name))
+                .range([0, innerWidth])
+                .padding(0.3);
+            
+            const yScale = d3.scaleLinear()
+                .domain([0, 100])
+                .range([innerHeight, 0]);
+            
+            const colorScale = d3.scaleOrdinal()
+                .domain(emotions.map(e => e.name))
+                .range(emotions.map(e => e.color));
+            
+            svg.selectAll('.bar')
+                .data(emotions)
+                .enter()
+                .append('rect')
+                .attr('class', 'bar')
+                .attr('x', d => xScale(d.name))
+                .attr('y', d => yScale(data[d.id]))
+                .attr('width', xScale.bandwidth())
+                .attr('height', d => innerHeight - yScale(data[d.id]))
+                .attr('fill', d => colorScale(d.name))
+                .attr('rx', 4)
+                .attr('ry', 4)
+                .on('mouseenter', function() {
+                    d3.select(this).attr('opacity', 0.7);
+                })
+                .on('mouseleave', function() {
+                    d3.select(this).attr('opacity', 1);
+                });
+            
+            svg.selectAll('.label')
+                .data(emotions)
+                .enter()
+                .append('text')
+                .attr('x', d => xScale(d.name) + xScale.bandwidth() / 2)
+                .attr('y', d => yScale(data[d.id]) - 5)
+                .attr('text-anchor', 'middle')
+                .attr('fill', '#e8dcc0')
+                .attr('font-size', '10px')
+                .attr('font-family', 'monospace')
+                .text(d => `${data[d.id]}%`);
+            
+            svg.append('g')
+                .attr('transform', `translate(0,${innerHeight})`)
+                .call(d3.axisBottom(xScale))
+                .style('font-size', '10px')
+                .style('fill', '#a09070')
+                .style('font-family', 'monospace');
+            
+            svg.append('g')
+                .call(d3.axisLeft(yScale).ticks(5).tickFormat(d => d + '%'))
+                .style('font-size', '10px')
+                .style('fill', '#a09070')
+                .style('font-family', 'monospace');
+        }
+
+        function drawRadarChart(data) {
+            radarChartDiv.innerHTML = '';
+            
+            const width = radarChartDiv.clientWidth || 400;
+            const height = 280;
+            const radius = Math.min(width, height) / 2.2;
+            const centerX = width / 2;
+            const centerY = height / 2;
+            
+            const svg = d3.select(radarChartDiv)
+                .append('svg')
+                .attr('width', width)
+                .attr('height', height)
+                .append('g')
+                .attr('transform', `translate(${centerX},${centerY})`);
+            
+            const angleSlice = (Math.PI * 2) / emotions.length;
+            
+            const rScale = d3.scaleLinear()
+                .domain([0, 100])
+                .range([0, radius]);
+            
+            const levels = [20, 40, 60, 80, 100];
+            levels.forEach(level => {
+                svg.append('circle')
+                    .attr('r', rScale(level))
+                    .attr('fill', 'none')
+                    .attr('stroke', 'rgba(255, 255, 255, 0.1)')
+                    .attr('stroke-width', 0.5);
+            });
+            
+            emotions.forEach((e, i) => {
+                const angle = i * angleSlice;
+                const x = rScale(100) * Math.cos(angle - Math.PI / 2);
+                const y = rScale(100) * Math.sin(angle - Math.PI / 2);
+                
+                svg.append('line')
+                    .attr('x1', 0)
+                    .attr('y1', 0)
+                    .attr('x2', x)
+                    .attr('y2', y)
+                    .attr('stroke', 'rgba(255, 255, 255, 0.1)')
+                    .attr('stroke-width', 0.5);
+                
+                svg.append('text')
+                    .attr('x', x * 1.1)
+                    .attr('y', y * 1.1)
+                    .attr('text-anchor', 'middle')
+                    .attr('dominant-baseline', 'middle')
+                    .attr('fill', e.color)
+                    .attr('font-size', '10px')
+                    .attr('font-family', 'monospace')
+                    .text(e.icon + ' ' + e.name);
+            });
+            
+            const points = emotions.map((e, i) => {
+                const angle = i * angleSlice;
+                const value = data[e.id];
+                const r = rScale(value);
+                return {
+                    x: r * Math.cos(angle - Math.PI / 2),
+                    y: r * Math.sin(angle - Math.PI / 2)
+                };
+            });
+            
+            const lineGenerator = d3.line()
+                .x(d => d.x)
+                .y(d => d.y)
+                .curve(d3.curveLinearClosed);
+            
+            svg.append('path')
+                .datum(points)
+                .attr('d', lineGenerator)
+                .attr('fill', 'rgba(255, 212, 168, 0.2)')
+                .attr('stroke', '#ffd4a8')
+                .attr('stroke-width', 2);
+            
+            svg.selectAll('.radar-point')
+                .data(points)
+                .enter()
+                .append('circle')
+                .attr('cx', d => d.x)
+                .attr('cy', d => d.y)
+                .attr('r', 4)
+                .attr('fill', '#ffd4a8');
+        }
+
+        function displayKeywords(foundWords) {
+            keywordsGrid.innerHTML = '';
+            
+            const emotionNames = {
+                joy: 'Alegría ',
+                sadness: 'Tristeza',
+                anger: 'Enojo ',
+                fear: 'Miedo ',
+                love: 'Amor ',
+                surprise: 'Sorpresa '
+            };
+            
+            const emotionClasses = {
+                joy: 'emotion-joy',
+                sadness: 'emotion-sadness',
+                anger: 'emotion-anger',
+                fear: 'emotion-fear',
+                love: 'emotion-love',
+                surprise: 'emotion-surprise'
+            };
+            
+            for (const [emotion, words] of Object.entries(foundWords)) {
+                if (words.length > 0) {
+                    const card = document.createElement('div');
+                    card.className = `keyword-card ${emotionClasses[emotion]}`;
+                    card.innerHTML = `
+                        <div class="keyword-emotion">${emotionNames[emotion]}</div>
+                        <div class="keyword-list">
+                            ${words.slice(0, 8).map(w => `<span class="keyword-tag">${w}</span>`).join('')}
+                            ${words.length > 8 ? `<span class="keyword-tag">+${words.length - 8} más</span>` : ''}
+                        </div>
+                    `;
+                    keywordsGrid.appendChild(card);
+                }
+            }
+            
+            if (keywordsGrid.children.length === 0) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.style.textAlign = 'center';
+                emptyMsg.style.color = '#6a5a7a';
+                emptyMsg.style.gridColumn = '1 / -1';
+                emptyMsg.style.padding = '2rem';
+                emptyMsg.textContent = 'No se detectaron palabras emocionales. Escribe un texto más largo o con más contenido literario.';
+                keywordsGrid.appendChild(emptyMsg);
+            }
+        }
+
+        function performAnalysis() {
+            const text = textInput.value.trim();
+            
+            if (text.length === 0) {
+                showToast('Escribe o pega un texto para analizar');
+                return;
+            }
+            
+            if (text.length < 20) {
+                showToast('Escribe un texto más largo para un análisis más preciso (mínimo 20 caracteres)');
+            }
+            
+            const result = analyzeText(text);
+            
+            resultsSection.classList.add('visible');
+            
+            drawBarChart(result.scores);
+            drawRadarChart(result.scores);
+            
+            displayKeywords(result.foundWords);
+            
+            const dominantEmotion = Object.entries(result.scores)
+                .sort((a, b) => b[1] - a[1])[0];
+            const emotionName = emotions.find(e => e.id === dominantEmotion[0])?.name || 'Neutral';
+            
+            statsFooter.innerHTML = `
+                ${result.wordCount} palabras analizadas | 
+                Emoción dominante: ${emotionName} (${dominantEmotion[1]}%) |
+                Basado en diccionario heurístico de ${Object.values(emotionLexicon).flatMap(e => e.words).length} palabras
+            `;
+            
+            showToast(`Análisis completado - Emoción principal: ${emotionName}`);
+        }
+
+        const examples = {
+            love: `El amor es como el viento, no lo ves pero lo sientes. Cuando estoy contigo, el mundo entero sonríe. Tus ojos brillan como estrellas en la noche más oscura. Te quiero con toda mi alma, con cada latido de mi corazón. Cada día a tu lado es un regalo, una razón para sonreír. El amor verdadero no entiende de tiempo ni de distancia, solo entiende de sentir.`,
+            
+            sad: `La soledad me acompaña en las noches más oscuras. Las lágrimas caen silenciosamente mientras recuerdo lo que se fue. El vacío en mi pecho es inmenso, como un abismo sin fondo. Todo parece gris, sin esperanza. La tristeza me abraza y no me suelta. ¿Hasta cuándo durará este dolor?`,
+            
+            anger: `¡No soporto más esta injusticia! La rabia me quema por dentro. Mentiras, traiciones, engaños. Me han robado la paciencia y la confianza. Estoy harto de todo, furioso con el mundo que solo sabe destruir. La ira hierve en mis venas. ¡Basta ya!`,
+            
+            poem: `Bajo la luna llena, el viento susurra secretos ancestrales. Las hojas caen como lágrimas del otoño. En el jardín de mi memoria, florecen los recuerdos más dulces y también los más amargos. La vida es un río que nunca deja de fluir, llevándose todo a su paso.`
+        };
+        
+        function loadExample(type) {
+            if (examples[type]) {
+                textInput.value = examples[type];
+                performAnalysis();
+            }
+        }
+
+        function clearAll() {
+            textInput.value = '';
+            resultsSection.classList.remove('visible');
+            showToast('🗑️ Todo limpiado');
+        }
+
+        function handleResize() {
+            if (resultsSection.classList.contains('visible') && textInput.value.trim()) {
+                const text = textInput.value.trim();
+                if (text) {
+                    const result = analyzeText(text);
+                    drawBarChart(result.scores);
+                    drawRadarChart(result.scores);
+                }
+            }
+        }
+
+        function init() {
+            analyzeBtn.addEventListener('click', performAnalysis);
+            clearBtn.addEventListener('click', clearAll);
+            window.addEventListener('resize', handleResize);
+            
+            document.querySelectorAll('.example-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const type = btn.getAttribute('data-example');
+                    loadExample(type);
+                });
+            });
+            
+            setTimeout(() => {
+                if (textInput.value.trim() && textInput.value.trim().length > 20) {
+                    performAnalysis();
+                }
+            }, 500);
+            
+        }
+        
+        init();
+    </script>
+</body>
+</html>
